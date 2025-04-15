@@ -5,7 +5,6 @@ from os.path import join
 class Player(pygame.sprite.Sprite):
     def __init__(self, groups):
         super().__init__(groups)
-        self.groups = groups
         self.image = pygame.image.load(join('images', 'player.png')).convert_alpha()
         self.rect = self.image.get_frect(center = (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
         self.direction = pygame.math.Vector2()
@@ -28,10 +27,15 @@ class Player(pygame.sprite.Sprite):
         self.direction.y = int(keys[pygame.K_DOWN]) - int(keys[pygame.K_UP])
         self.direction = self.direction.normalize() if self.direction else self.direction
         self.rect.center += self.direction * self.speed * dt
+        
+        if self.rect.left < 0: self.rect.left = 0
+        if self.rect.top < 0: self.rect.top = 0
+        if self.rect.right > WINDOW_WIDTH: self.rect.right = WINDOW_WIDTH
+        if self.rect.bottom > WINDOW_HEIGHT: self.rect.bottom = WINDOW_HEIGHT
     
         recent_keys = pygame.key.get_just_pressed()
         if recent_keys[pygame.K_SPACE] and self.can_shoot:
-            Laser(laser_surf, self.rect.midtop, self.groups)
+            Laser(laser_surf, self.rect.midtop, (all_sprites, laser_sprites))
             self.can_shoot = False
             self.laser_shoot_time = pygame.time.get_ticks()
             
@@ -67,7 +71,18 @@ class Meteor(pygame.sprite.Sprite):
         self.rect.center += self.direction * self.speed * dt
         current_time = pygame.time.get_ticks()
         if current_time - self.created_time >= self.lifetime: self.kill()
-        
+
+def collisions():
+    global running
+    
+    collision_sprites = pygame.sprite.spritecollide(player, meteor_sprites, False)
+    if collision_sprites:
+        running = False
+    
+    for laser in laser_sprites:
+        collided_sprites = pygame.sprite.spritecollide(laser, meteor_sprites, True):
+        if collided_sprites:
+            laser.kill()
 # general setup
 pygame.init()
 WINDOW_WIDTH, WINDOW_HEIGHT = 1280, 720
@@ -81,6 +96,8 @@ surf = pygame.Surface((100, 200))
 surf.fill('orange')
 n_of_stars = 20
 all_sprites = pygame.sprite.Group()
+meteor_sprites = pygame.sprite.Group()
+laser_sprites = pygame.sprite.Group()
 
 star_surf = pygame.image.load(join('images', 'star.png')).convert_alpha()
 meteor_surf = pygame.image.load(join('images', 'meteor.png')).convert_alpha()
@@ -103,7 +120,7 @@ while running:
             running = False
         if event.type == meteor_event:
             pos = (randint(0, WINDOW_WIDTH), randint(-200, -100))
-            Meteor(meteor_surf, pos, all_sprites)
+            Meteor(meteor_surf, pos, (all_sprites, meteor_sprites))
             
     # update
     all_sprites.update(dt)
